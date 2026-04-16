@@ -3,9 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌸 LampShade Designer Pro</title>
+<title>🌸 LampShade Designer Pro - CAD Edition</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/OBJExporter.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;600;700&family=Nunito:wght@300;400;600;700&display=swap');
 
@@ -297,6 +299,113 @@
     background: var(--pink-500);
     color: white;
     transform: scale(1.1);
+  }
+
+  /* ===== CAD TOOLBAR ===== */
+  .cad-toolbar {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(15px);
+    padding: 10px 20px;
+    border-radius: 15px;
+    display: flex;
+    gap: 8px;
+    box-shadow: 0 4px 20px rgba(244, 114, 182, 0.25);
+    z-index: 100;
+  }
+
+  .cad-tool-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    border: 2px solid var(--pink-300);
+    background: white;
+    color: var(--pink-700);
+    font-size: 1.4em;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .cad-tool-btn:hover {
+    background: var(--pink-100);
+    border-color: var(--pink-500);
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(244, 114, 182, 0.3);
+  }
+
+  .cad-tool-btn.active {
+    background: var(--pink-500);
+    color: white;
+    border-color: var(--pink-600);
+  }
+
+  .cad-tool-btn .tooltip {
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--pink-800);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.65em;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .cad-tool-btn:hover .tooltip {
+    opacity: 1;
+  }
+
+  .dimension-label {
+    position: absolute;
+    background: rgba(255,255,255,0.9);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75em;
+    font-weight: 700;
+    color: var(--pink-700);
+    border: 1px solid var(--pink-300);
+    pointer-events: none;
+  }
+
+  /* ===== MEASUREMENT PANEL ===== */
+  .measurement-panel {
+    background: rgba(255,255,255,0.6);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    margin-top: 8px;
+  }
+
+  .measurement-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px dashed var(--pink-200);
+  }
+
+  .measurement-row:last-child {
+    border-bottom: none;
+  }
+
+  .measurement-label {
+    color: var(--pink-600);
+    font-weight: 600;
+  }
+
+  .measurement-value {
+    color: var(--pink-800);
+    font-weight: 700;
   }
 
   /* ===== RIGHT PANEL ===== */
@@ -806,7 +915,48 @@
   <!-- 3D Viewport -->
   <div class="viewport-container">
     <canvas id="viewport"></canvas>
+    
+    <!-- CAD Toolbar -->
+    <div class="cad-toolbar">
+      <button class="cad-tool-btn" onclick="setView('front')" title="Вид спереди">
+        📐
+        <span class="tooltip">Фронт</span>
+      </button>
+      <button class="cad-tool-btn" onclick="setView('top')" title="Вид сверху">
+        ⬆️
+        <span class="tooltip">Верх</span>
+      </button>
+      <button class="cad-tool-btn" onclick="setView('right')" title="Вид справа">
+        ➡️
+        <span class="tooltip">Право</span>
+      </button>
+      <button class="cad-tool-btn" onclick="setView('iso')" title="Изометрия">
+        🧊
+        <span class="tooltip">Изо</span>
+      </button>
+      <button class="cad-tool-btn" onclick="toggleDimensions()" title="Размеры">
+        📏
+        <span class="tooltip">Размеры</span>
+      </button>
+      <button class="cad-tool-btn" onclick="snapToGrid()" title="Привязка к сетке">
+        🎯
+        <span class="tooltip">Привязка</span>
+      </button>
+      <button class="cad-tool-btn" onclick="toggleOrtho()" title="Орто/Перспектива">
+        ◫
+        <span class="tooltip">Орто</span>
+      </button>
+      <button class="cad-tool-btn" onclick="zoomExtents()" title="Показать всё">
+        🔍
+        <span class="tooltip">Все</span>
+      </button>
+    </div>
+    
     <div class="viewport-overlay">🖱️ Вращайте мышкой • Колёсико для масштаба • ПКМ для перемещения</div>
+    
+    <!-- Dimension Labels Container -->
+    <div id="dimensionLabels"></div>
+    
     <div class="viewport-controls">
       <button class="viewport-btn" onclick="resetCamera()" title="Сбросить камеру">🏠</button>
       <button class="viewport-btn" onclick="toggleWireframe()" title="Каркас">🔲</button>
@@ -872,6 +1022,27 @@
         <label>Шероховатость <span class="range-value" id="roughnessVal">40</span>%</label>
         <input type="range" id="roughness" min="0" max="100" value="40" oninput="updateParam('roughness', this.value)">
       </div>
+      
+      <!-- CAD Measurements Panel -->
+      <div class="measurement-panel">
+        <div style="font-weight:700; color:var(--pink-700); margin-bottom:8px;">📊 Параметры модели</div>
+        <div class="measurement-row">
+          <span class="measurement-label">Объём:</span>
+          <span class="measurement-value" id="modelVolume">-</span>
+        </div>
+        <div class="measurement-row">
+          <span class="measurement-label">Площадь:</span>
+          <span class="measurement-value" id="modelArea">-</span>
+        </div>
+        <div class="measurement-row">
+          <span class="measurement-label">Вершин:</span>
+          <span class="measurement-value" id="vertexCount">-</span>
+        </div>
+        <div class="measurement-row">
+          <span class="measurement-label">Граней:</span>
+          <span class="measurement-value" id="faceCount">-</span>
+        </div>
+      </div>
     </div>
 
     <!-- Export -->
@@ -934,7 +1105,11 @@ const state = {
   brushMode: false,
   brushColor: '#ff69b4',
   brushSize: 15,
-  paintedVertices: new Map()
+  paintedVertices: new Map(),
+  // CAD tools state
+  showDimensions: false,
+  snapToGridEnabled: false,
+  isOrtho: false
 };
 
 // Three.js globals
@@ -1146,6 +1321,9 @@ function buildShade() {
   shadeMesh.userData.isShade = true;
 
   scene.add(shadeMesh);
+  
+  // Update measurements after building
+  setTimeout(updateModelMeasurements, 50);
 }
 
 function createCylinderShade(p) {
@@ -1417,6 +1595,33 @@ function updateParam(param, value) {
   document.getElementById(param + 'Val').textContent = value;
   buildShade();
   buildBulb();
+  updateModelMeasurements();
+}
+
+// ==========================================
+// MODEL MEASUREMENTS (CAD-style)
+// ==========================================
+function updateModelMeasurements() {
+  if (!shadeMesh) return;
+  
+  const geometry = shadeMesh.geometry;
+  const vertexCount = geometry.attributes.position.count;
+  const faceCount = vertexCount / 3;
+  
+  // Calculate bounding box for approximate volume/area
+  const box = new THREE.Box3().setFromObject(shadeMesh);
+  const size = box.getSize(new THREE.Vector3());
+  
+  // Approximate volume (bounding box based - simplified)
+  const volume = (size.x * size.y * size.z).toFixed(1);
+  
+  // Approximate surface area (simplified calculation)
+  const area = (2 * (size.x * size.y + size.y * size.z + size.z * size.x)).toFixed(1);
+  
+  document.getElementById('modelVolume').textContent = volume + ' мм³';
+  document.getElementById('modelArea').textContent = area + ' мм²';
+  document.getElementById('vertexCount').textContent = vertexCount;
+  document.getElementById('faceCount').textContent = Math.floor(faceCount);
 }
 
 function toggleBulb() {
@@ -1861,7 +2066,115 @@ function animate() {
     bulbMesh.material.emissiveIntensity = state.bulbGlow;
   }
 
+  // Update dimension labels if enabled
+  if (state.showDimensions && shadeMesh) {
+    updateDimensionLabels();
+  }
+
   renderer.render(scene, camera);
+}
+
+// ==========================================
+// CAD TOOLS FUNCTIONS
+// ==========================================
+function setView(view) {
+  const distance = 400;
+  switch(view) {
+    case 'front':
+      camera.position.set(0, 100, distance);
+      break;
+    case 'top':
+      camera.position.set(0, distance, 0);
+      break;
+    case 'right':
+      camera.position.set(distance, 100, 0);
+      break;
+    case 'iso':
+      camera.position.set(distance * 0.7, distance * 0.5, distance * 0.7);
+      break;
+  }
+  controls.target.set(0, 100, 0);
+  controls.update();
+  showNotification(`📐 Вид: ${view.toUpperCase()}`);
+}
+
+function toggleDimensions() {
+  state.showDimensions = !state.showDimensions;
+  const labelsContainer = document.getElementById('dimensionLabels');
+  labelsContainer.style.display = state.showDimensions ? 'block' : 'none';
+  if (state.showDimensions) {
+    updateDimensionLabels();
+  } else {
+    labelsContainer.innerHTML = '';
+  }
+  showNotification(state.showDimensions ? '📏 Размеры включены' : '📏 Размеры выключены');
+}
+
+function updateDimensionLabels() {
+  const container = document.getElementById('dimensionLabels');
+  container.innerHTML = '';
+  
+  // Create dimension labels based on current model parameters
+  const labels = [
+    { text: `H: ${state.height}мм`, x: '20px', y: '80px' },
+    { text: `R: ${state.radius}мм`, x: '20px', y: '110px' },
+    { text: `T: ${state.thickness}мм`, x: '20px', y: '140px' }
+  ];
+  
+  labels.forEach(labelData => {
+    const label = document.createElement('div');
+    label.className = 'dimension-label';
+    label.style.left = labelData.x;
+    label.style.top = labelData.y;
+    label.textContent = labelData.text;
+    container.appendChild(label);
+  });
+}
+
+function snapToGrid() {
+  state.snapToGridEnabled = !state.snapToGridEnabled;
+  showNotification(state.snapToGridEnabled ? '🎯 Привязка к сетке включена' : '🎯 Привязка выключена');
+}
+
+function toggleOrtho() {
+  state.isOrtho = !state.isOrtho;
+  if (state.isOrtho) {
+    const aspect = camera.aspect || 1;
+    const frustumSize = 500;
+    const newCam = new THREE.OrthographicCamera(
+      frustumSize * aspect / -2,
+      frustumSize * aspect / 2,
+      frustumSize / 2,
+      frustumSize / -2,
+      1, 5000
+    );
+    newCam.position.copy(camera.position);
+    newCam.rotation.copy(camera.rotation);
+    camera = newCam;
+    controls.camera = camera;
+  } else {
+    const oldPos = camera.position.clone();
+    camera = new THREE.PerspectiveCamera(50, camera.aspect || 1, 0.1, 5000);
+    camera.position.copy(oldPos);
+    controls.camera = camera;
+  }
+  camera.lookAt(controls.target);
+  showNotification(state.isOrtho ? '◫ Ортогональная проекция' : '◫ Перспектива');
+}
+
+function zoomExtents() {
+  if (!shadeMesh) return;
+  const box = new THREE.Box3().setFromObject(shadeMesh);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const distance = maxDim * 2.5;
+  
+  camera.position.set(center.x + distance, center.y + distance * 0.5, center.z + distance);
+  controls.target.copy(center);
+  controls.update();
+  showNotification('🔍 Масштабировано по объекту');
 }
 
 // ==========================================
