@@ -1045,6 +1045,88 @@
       </div>
     </div>
 
+    <!-- 3D Printing Material Calculator -->
+    <div class="panel-section">
+      <h3><span class="icon">🧵</span> Расчёт материалов</h3>
+      <div class="measurement-panel" style="background: rgba(255,255,255,0.8);">
+        <div class="form-group">
+          <label>Тип пластика</label>
+          <select id="filamentType" onchange="calculateMaterial()">
+            <option value="pla">PLA</option>
+            <option value="petg">PETG</option>
+            <option value="abs">ABS</option>
+            <option value="tpu">TPU (Flex)</option>
+            <option value="wood">Wood Fill</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Плотность заполнения <span class="range-value" id="infillVal">20</span>%</label>
+          <input type="range" id="infill" min="5" max="100" value="20" oninput="document.getElementById('infillVal').textContent=this.value; calculateMaterial()">
+        </div>
+        <div class="form-group">
+          <label>Толщина стенки <span class="range-value" id="wallThicknessVal">1.2</span> мм</label>
+          <input type="range" id="wallThickness" min="0.4" max="4" step="0.4" value="1.2" oninput="document.getElementById('wallThicknessVal').textContent=this.value; calculateMaterial()">
+        </div>
+        <hr style="border: none; border-top: 1px dashed var(--pink-300); margin: 10px 0;">
+        <div class="measurement-row">
+          <span class="measurement-label">Объём модели:</span>
+          <span class="measurement-value" id="modelVolumePrint">-</span>
+        </div>
+        <div class="measurement-row">
+          <span class="measurement-label">Вес пластика:</span>
+          <span class="measurement-value" id="filamentWeight" style="color: var(--pink-600); font-weight: 700;">-</span>
+        </div>
+        <div class="measurement-row">
+          <span class="measurement-label">Длина филамента:</span>
+          <span class="measurement-value" id="filamentLength">-</span>
+        </div>
+        <div class="measurement-row">
+          <span class="measurement-label">Время печати:</span>
+          <span class="measurement-value" id="printTime">-</span>
+        </div>
+        <div class="measurement-row">
+          <span class="measurement-label">Стоимость:</span>
+          <span class="measurement-value" id="printCost" style="color: var(--pink-700); font-weight: 700;">-</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Print Simulation Panel -->
+    <div class="panel-section">
+      <h3><span class="icon">🖨️</span> Симуляция печати</h3>
+      <button class="paint-tool-btn" id="startPrintBtn" onclick="togglePrintSimulation()" style="background: linear-gradient(135deg, var(--pink-500), var(--pink-600)); color: white;">
+        ▶️ Начать симуляцию печати
+      </button>
+      <div class="form-group" style="margin-top: 10px;">
+        <label>Скорость симуляции <span class="range-value" id="simSpeedVal">1x</span></label>
+        <input type="range" id="simSpeed" min="1" max="10" value="1" oninput="document.getElementById('simSpeedVal').textContent=this.value + 'x'; updateSimSpeed(this.value)">
+      </div>
+      <div class="form-group">
+        <label>Прогресс печати</label>
+        <div style="background: var(--pink-200); border-radius: 10px; height: 20px; overflow: hidden; margin-top: 5px;">
+          <div id="printProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--pink-400), var(--pink-600)); transition: width 0.3s;"></div>
+        </div>
+        <div style="text-align: center; font-size: 0.85em; color: var(--pink-700); margin-top: 5px;" id="printProgressText">0%</div>
+      </div>
+      <div class="measurement-panel" style="margin-top: 10px;">
+        <div class="measurement-row">
+          <span class="measurement-label">Слой:</span>
+          <span class="measurement-value" id="currentLayer">0 / 0</span>
+        </div>
+        <div class="measurement-row">
+          <span class="measurement-label">Высота слоя:</span>
+          <span class="measurement-value" id="layerHeightDisplay">0.2 мм</span>
+        </div>
+        <div class="measurement-row">
+          <span class="measurement-label">Статус:</span>
+          <span class="measurement-value" id="printStatus" style="color: var(--pink-500);">Ожидание</span>
+        </div>
+      </div>
+      <button class="paint-tool-btn" onclick="stopPrintSimulation()" style="margin-top: 8px; background: var(--pink-200); color: var(--pink-800);">
+        ⏹️ Остановить
+      </button>
+    </div>
+
     <!-- Export -->
     <div class="panel-section">
       <h3><span class="icon">📥</span> Экспорт модели</h3>
@@ -1580,6 +1662,7 @@ function setShape(shape) {
     btn.classList.toggle('active', btn.dataset.shape === shape);
   });
   buildShade();
+  updateModelMeasurements();
 }
 
 function setCutout(cutout) {
@@ -1588,6 +1671,7 @@ function setCutout(cutout) {
     btn.classList.toggle('active', btn.dataset.cutout === cutout);
   });
   buildShade();
+  updateModelMeasurements();
 }
 
 function updateParam(param, value) {
@@ -1622,6 +1706,9 @@ function updateModelMeasurements() {
   document.getElementById('modelArea').textContent = area + ' мм²';
   document.getElementById('vertexCount').textContent = vertexCount;
   document.getElementById('faceCount').textContent = Math.floor(faceCount);
+  
+  // Update material calculator
+  calculateMaterial();
 }
 
 function toggleBulb() {
@@ -1639,6 +1726,7 @@ function setShadeColor(color) {
   state.shadeColor = color;
   document.getElementById('shadeCustomColor').value = color;
   buildShade();
+  updateModelMeasurements();
 }
 
 function setBulbColor(color) {
@@ -1777,6 +1865,7 @@ function clearPaint() {
   shadeTexture.needsUpdate = true;
   state.paintedVertices.clear();
   showNotification('🗑️ Раскраска очищена');
+  updateModelMeasurements();
 }
 
 function savePaintedModel() {
@@ -2175,6 +2264,308 @@ function zoomExtents() {
   controls.target.copy(center);
   controls.update();
   showNotification('🔍 Масштабировано по объекту');
+}
+
+// ==========================================
+// 3D PRINT MATERIAL CALCULATOR
+// ==========================================
+const filamentData = {
+  pla: { density: 1.24, pricePerKg: 25, name: 'PLA' },
+  petg: { density: 1.27, pricePerKg: 30, name: 'PETG' },
+  abs: { density: 1.04, pricePerKg: 28, name: 'ABS' },
+  tpu: { density: 1.21, pricePerKg: 40, name: 'TPU (Flex)' },
+  wood: { density: 1.28, pricePerKg: 35, name: 'Wood Fill' }
+};
+
+let printSimulationActive = false;
+let printProgress = 0;
+let printAnimationId = null;
+let simSpeed = 1;
+let layerHeight = 0.2; // мм
+
+function calculateMaterial() {
+  if (!shadeMesh) return;
+  
+  const filamentType = document.getElementById('filamentType').value;
+  const infill = parseInt(document.getElementById('infill').value) / 100;
+  const wallThickness = parseFloat(document.getElementById('wallThickness').value);
+  
+  const filament = filamentData[filamentType];
+  
+  // Get model volume from bounding box (in mm³)
+  const box = new THREE.Box3().setFromObject(shadeMesh);
+  const size = box.getSize(new THREE.Vector3());
+  const modelVolumeMm3 = size.x * size.y * size.z;
+  const modelVolumeCm3 = modelVolumeMm3 / 1000;
+  
+  // Calculate effective volume with infill
+  // Shell volume approximation
+  const shellRatio = Math.min(1, (wallThickness * 2) / Math.min(size.x, size.y, size.z));
+  const effectiveVolume = modelVolumeCm3 * (shellRatio + (1 - shellRatio) * infill);
+  
+  // Weight calculation (grams)
+  const weight = effectiveVolume * filament.density;
+  
+  // Filament length (1.75mm diameter standard)
+  const filamentDiameter = 1.75;
+  const filamentRadius = filamentDiameter / 2;
+  const filamentCrossSection = Math.PI * filamentRadius * filamentRadius;
+  const volumeMm3 = weight / filament.density * 1000;
+  const lengthMm = volumeMm3 / filamentCrossSection;
+  const lengthM = lengthMm / 1000;
+  
+  // Print time estimation (based on typical 3D printer speeds)
+  // Average extrusion rate ~10-15 mm³/s for 0.2mm layer
+  const extrusionRate = 12; // mm³/s
+  const printTimeSeconds = volumeMm3 / extrusionRate;
+  const printTimeHours = printTimeSeconds / 3600;
+  
+  // Cost calculation
+  const cost = (weight / 1000) * filament.pricePerKg;
+  
+  // Update display
+  document.getElementById('modelVolumePrint').textContent = modelVolumeCm3.toFixed(2) + ' см³';
+  document.getElementById('filamentWeight').textContent = weight.toFixed(1) + ' г';
+  document.getElementById('filamentLength').textContent = lengthM.toFixed(1) + ' м';
+  
+  // Format time
+  let timeText;
+  if (printTimeHours < 1) {
+    const minutes = Math.round(printTimeHours * 60);
+    timeText = minutes + ' мин';
+  } else if (printTimeHours < 24) {
+    const hours = Math.floor(printTimeHours);
+    const minutes = Math.round((printTimeHours - hours) * 60);
+    timeText = `${hours}ч ${minutes}мин`;
+  } else {
+    const days = Math.floor(printTimeHours / 24);
+    const hours = Math.round(printTimeHours % 24);
+    timeText = `${days}д ${hours}ч`;
+  }
+  document.getElementById('printTime').textContent = timeText;
+  document.getElementById('printCost').textContent = cost.toFixed(2) + ' ₽';
+}
+
+// ==========================================
+// 3D PRINT SIMULATION
+// ==========================================
+let simulationLayers = [];
+let currentSimLayer = 0;
+let originalShadeVisible = true;
+
+function preparePrintSimulation() {
+  if (!shadeMesh) return false;
+  
+  const box = new THREE.Box3().setFromObject(shadeMesh);
+  const size = box.getSize(new THREE.Vector3());
+  const totalHeight = size.y;
+  
+  const numLayers = Math.ceil(totalHeight / layerHeight);
+  document.getElementById('currentLayer').textContent = `0 / ${numLayers}`;
+  
+  return true;
+}
+
+function togglePrintSimulation() {
+  if (printSimulationActive) {
+    stopPrintSimulation();
+  } else {
+    startPrintSimulation();
+  }
+}
+
+function startPrintSimulation() {
+  if (!shadeMesh || printSimulationActive) return;
+  
+  if (!preparePrintSimulation()) {
+    showNotification('⚠️ Сначала создайте модель!');
+    return;
+  }
+  
+  printSimulationActive = true;
+  printProgress = 0;
+  currentSimLayer = 0;
+  
+  document.getElementById('startPrintBtn').innerHTML = '⏸️ Пауза';
+  document.getElementById('printStatus').textContent = 'Печать...';
+  document.getElementById('printStatus').style.color = 'var(--pink-600)';
+  
+  // Hide original mesh temporarily
+  originalShadeVisible = shadeMesh.visible;
+  
+  // Create layered visualization
+  createSimulationLayers();
+  
+  runPrintSimulation();
+  
+  showNotification('🖨️ Симуляция печати запущена!');
+}
+
+function createSimulationLayers() {
+  // Remove existing simulation layers
+  if (window.simulationGroup) {
+    scene.remove(window.simulationGroup);
+  }
+  
+  window.simulationGroup = new THREE.Group();
+  scene.add(window.simulationGroup);
+  
+  const geometry = shadeMesh.geometry.clone();
+  const box = new THREE.Box3().setFromObject(shadeMesh);
+  const size = box.getSize(new THREE.Vector3());
+  const min = box.min;
+  
+  const numLayers = Math.ceil(size.y / layerHeight);
+  const layerMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0xf472b6, 
+    wireframe: true,
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  // Store layer info
+  simulationLayers = [];
+  
+  for (let i = 0; i < numLayers; i++) {
+    const layerY = min.y + i * layerHeight;
+    const layerMesh = new THREE.Mesh(geometry, layerMaterial.clone());
+    layerMesh.position.copy(shadeMesh.position);
+    layerMesh.scale.copy(shadeMesh.scale);
+    
+    // Create clipping plane for this layer
+    layerMesh.userData.layerIndex = i;
+    layerMesh.userData.totalLayers = numLayers;
+    layerMesh.visible = false;
+    
+    window.simulationGroup.add(layerMesh);
+    simulationLayers.push(layerMesh);
+  }
+}
+
+function runPrintSimulation() {
+  if (!printSimulationActive) return;
+  
+  const numLayers = simulationLayers.length;
+  if (numLayers === 0) return;
+  
+  const baseSpeed = 0.5; // layers per second at 1x speed
+  const layersPerFrame = (baseSpeed * simSpeed) / 60;
+  
+  currentSimLayer += layersPerFrame;
+  
+  if (currentSimLayer >= numLayers) {
+    currentSimLayer = numLayers;
+    printProgress = 100;
+    completePrintSimulation();
+    return;
+  }
+  
+  printProgress = (currentSimLayer / numLayers) * 100;
+  
+  // Update visible layers
+  const currentLayerInt = Math.floor(currentSimLayer);
+  for (let i = 0; i < simulationLayers.length; i++) {
+    simulationLayers[i].visible = i <= currentLayerInt;
+  }
+  
+  // Update UI
+  document.getElementById('printProgressBar').style.width = printProgress + '%';
+  document.getElementById('printProgressText').textContent = Math.round(printProgress) + '%';
+  document.getElementById('currentLayer').textContent = `${currentLayerInt} / ${numLayers}`;
+  
+  // Animate nozzle position (visual effect)
+  animateNozzle(currentLayerInt);
+  
+  printAnimationId = requestAnimationFrame(runPrintSimulation);
+}
+
+let nozzleMesh = null;
+function animateNozzle(layerIndex) {
+  if (!window.simulationGroup) return;
+  
+  if (!nozzleMesh) {
+    const nozzleGeometry = new THREE.ConeGeometry(2, 8, 8);
+    const nozzleMaterial = new THREE.MeshBasicMaterial({ color: 0xff6b6b });
+    nozzleMesh = new THREE.Mesh(nozzleGeometry, nozzleMaterial);
+    window.simulationGroup.add(nozzleMesh);
+  }
+  
+  const box = new THREE.Box3().setFromObject(shadeMesh);
+  const size = box.getSize(new THREE.Vector3());
+  const min = box.min;
+  
+  // Position nozzle above current layer
+  const layerY = min.y + layerIndex * layerHeight + 5;
+  const spiralAngle = Date.now() * 0.002 * simSpeed;
+  const radius = Math.max(size.x, size.z) * 0.6;
+  
+  nozzleMesh.position.set(
+    min.x + size.x / 2 + Math.cos(spiralAngle) * radius,
+    layerY,
+    min.z + size.z / 2 + Math.sin(spiralAngle) * radius
+  );
+  nozzleMesh.rotation.y = -spiralAngle;
+}
+
+function completePrintSimulation() {
+  printSimulationActive = false;
+  document.getElementById('startPrintBtn').innerHTML = '✅ Печать завершена';
+  document.getElementById('printStatus').textContent = 'Готово!';
+  document.getElementById('printStatus').style.color = '#10b981';
+  
+  // Show original mesh again
+  if (shadeMesh) {
+    shadeMesh.visible = originalShadeVisible;
+  }
+  
+  // Clean up simulation
+  setTimeout(() => {
+    if (window.simulationGroup) {
+      scene.remove(window.simulationGroup);
+      window.simulationGroup = null;
+    }
+    if (nozzleMesh) {
+      nozzleMesh = null;
+    }
+    document.getElementById('startPrintBtn').innerHTML = '▶️ Начать симуляцию печати';
+  }, 2000);
+  
+  showNotification('🎉 Симуляция печати завершена!');
+}
+
+function stopPrintSimulation() {
+  printSimulationActive = false;
+  
+  if (printAnimationId) {
+    cancelAnimationFrame(printAnimationId);
+    printAnimationId = null;
+  }
+  
+  // Clean up
+  if (window.simulationGroup) {
+    scene.remove(window.simulationGroup);
+    window.simulationGroup = null;
+  }
+  nozzleMesh = null;
+  
+  // Restore original mesh
+  if (shadeMesh) {
+    shadeMesh.visible = true;
+  }
+  
+  // Reset UI
+  document.getElementById('startPrintBtn').innerHTML = '▶️ Начать симуляцию печати';
+  document.getElementById('printStatus').textContent = 'Остановлено';
+  document.getElementById('printStatus').style.color = 'var(--pink-500)';
+  document.getElementById('printProgressBar').style.width = '0%';
+  document.getElementById('printProgressText').textContent = '0%';
+  document.getElementById('currentLayer').textContent = '0 / 0';
+  
+  showNotification('⏹️ Симуляция остановлена');
+}
+
+function updateSimSpeed(value) {
+  simSpeed = parseFloat(value);
 }
 
 // ==========================================
